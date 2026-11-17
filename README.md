@@ -1,3 +1,11 @@
+> **本仓库是 Intel（x86_64）移植分支，非上游官方版本。**
+> 上游 [plumblossom26/WCRefine-For-Mac](https://github.com/plumblossom26/WCRefine-For-Mac) 仅支持 Apple Silicon；
+> 本分支让它能在 Intel Mac 上编译、注入、启动。**当前部分功能可用**：
+> 纯 swizzle 类（禁用截图检测、原始 ID、联系人名称、桌宠、多开）可用；
+> 依赖机器码锚点的功能（防撤回原文、屏蔽、圆角头像、复读、多选、语音、置顶）尚未在 x86_64 登记，会自报不可用。
+> 移植说明、构建方法、踩过的坑见 [INTEL-PORT.md](INTEL-PORT.md)。
+> 构建：`make ARCH=x86_64 all`。MIT 许可，版权归上游作者。
+
 # WCRefine for Mac
 
 Mac微信增强工具，**基于微信 4.1.15.55（构建 270135）、4.2.0.15（构建 270351）、4.2.0.17（构建 270353）、4.2.0.51（构建 270387）和 4.2.0.54（构建 270390）制作**。
