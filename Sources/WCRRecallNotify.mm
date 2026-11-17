@@ -220,7 +220,14 @@ using ForwardMessageFn = ForwardSubscription (*)(ForwardTargets *, const void *,
 
 static_assert(sizeof(ForwardTargets) == 0x48, "270135 forward target ABI mismatch");
 static_assert(sizeof(ForwardSubscription) == 0x28, "270135 forward subscription ABI mismatch");
+// 移植到 x86_64：同一份 libc++ 在这套 SDK 上给 std::function 的实例是 48 字节，
+// 三个回调 + 两个保留字 = 0xA0。arm64 那份是 0x70。这里按编译目标分别断言，
+// 因为要对齐的是「目标架构微信自己的布局」，不是作者那台的。
+#if defined(__x86_64__)
+static_assert(sizeof(ForwardCallbacks) == 0xA0, "x86_64 forward callback ABI mismatch");
+#else
 static_assert(sizeof(ForwardCallbacks) == 0x70, "270135 forward callback ABI mismatch");
+#endif
 static_assert(kMessageBodyOffset != 0xB0, "notice body must not use the 269079 content slot");
 
 std::mutex gMutex;

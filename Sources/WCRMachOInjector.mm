@@ -14,7 +14,14 @@
 
 namespace {
 
-constexpr uint32_t kArm64CpuType = CPU_TYPE_ARM64;
+// 移植：按编译目标选切片，Intel 上就是 x86_64 那片。
+#if defined(__x86_64__)
+constexpr uint32_t kTargetCpuType = CPU_TYPE_X86_64;
+constexpr const char *kTargetArchName = "x86_64";
+#else
+constexpr uint32_t kTargetCpuType = CPU_TYPE_ARM64;
+constexpr const char *kTargetArchName = "arm64";
+#endif
 constexpr uint32_t kMachoMagic64 = MH_MAGIC_64;
 constexpr uint32_t kCSMagicEmbeddedSignature = 0xFADE0CC0;
 constexpr uint32_t kCSMagicEmbeddedEntitlements = 0xFADE7171;
@@ -93,8 +100,8 @@ bool InjectSlice(uint8_t *slice,
         return NO;
     }
     if (ReadLE32(slice, 0) != kMachoMagic64 ||
-        ReadLE32(slice, 4) != kArm64CpuType) {
-        if (error) *error = WCRInjectorError(@"arm64 切片不是受支持的 MH_MAGIC_64");
+        ReadLE32(slice, 4) != kTargetCpuType) {
+        if (error) *error = WCRInjectorError([NSString stringWithFormat:@"%s 切片不是受支持的 MH_MAGIC_64", kTargetArchName]);
         return NO;
     }
 
@@ -280,19 +287,19 @@ bool FindArm64SliceForReading(const uint8_t *bytes,
                 if (error) *error = WCRInjectorError(@"Fat Mach-O 切片越界");
                 return false;
             }
-            if (cpuType == kArm64CpuType) {
+            if (cpuType == kTargetCpuType) {
                 *slice = bytes + offset;
                 *sliceSize = static_cast<size_t>(length);
                 return true;
             }
             cursor += entrySize;
         }
-        if (error) *error = WCRInjectorError(@"二进制不包含 arm64 切片");
+        if (error) *error = WCRInjectorError([NSString stringWithFormat:@"二进制不包含 %s 切片", kTargetArchName]);
         return false;
     }
 
-    if (ReadLE32(bytes, 0) != kMachoMagic64 || ReadLE32(bytes, 4) != kArm64CpuType) {
-        if (error) *error = WCRInjectorError(@"不是 arm64 MH_MAGIC_64");
+    if (ReadLE32(bytes, 0) != kMachoMagic64 || ReadLE32(bytes, 4) != kTargetCpuType) {
+        if (error) *error = WCRInjectorError([NSString stringWithFormat:@"不是 %s MH_MAGIC_64", kTargetArchName]);
         return false;
     }
     *slice = bytes;
@@ -464,7 +471,7 @@ BOOL WCRInjectDylibLoadCommand(NSString *binaryPath,
                 return NO;
             }
             cursor += entrySize;
-            if (cpuType != kArm64CpuType) continue;
+            if (cpuType != kTargetCpuType) continue;
             foundArm64 = true;
             bool sliceChanged = false;
             if (!InjectSlice(bytes + sliceOffset,
@@ -477,7 +484,7 @@ BOOL WCRInjectDylibLoadCommand(NSString *binaryPath,
             changed = changed || sliceChanged;
         }
         if (!foundArm64) {
-            if (error) *error = WCRInjectorError(@"二进制不包含 arm64 切片");
+            if (error) *error = WCRInjectorError([NSString stringWithFormat:@"二进制不包含 %s 切片", kTargetArchName]);
             return NO;
         }
     } else if (thinMagic == kMachoMagic64) {

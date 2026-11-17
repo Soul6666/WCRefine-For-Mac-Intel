@@ -71,7 +71,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ "$(uname -m)" == "arm64" ]] || die "当前仅支持 Apple Silicon（arm64）"
+# 移植：Intel 也放行（本 fork 的 dylib 和注入器都按 x86_64 编）
+[[ "$(uname -m)" == "arm64" || "$(uname -m)" == "x86_64" ]] || die "需要 arm64 或 x86_64 的 macOS"
 [[ -d "$SOURCE_APP" ]] || die "找不到微信: $SOURCE_APP"
 
 echo "构建管理 App 与插件…"

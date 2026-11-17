@@ -24,8 +24,8 @@ int main(int argc, const char *argv[]) {
         }
 
         struct utsname systemInfo{};
-        if (uname(&systemInfo) != 0 || strcmp(systemInfo.machine, "arm64") != 0) {
-            fprintf(stderr, "error: 当前仅支持 Apple Silicon（arm64）\n");
+        if (uname(&systemInfo) != 0 || (strcmp(systemInfo.machine, "arm64") != 0 && strcmp(systemInfo.machine, "x86_64") != 0)) {
+            fprintf(stderr, "error: 需要 arm64 或 x86_64 的 macOS\n");
             return 2;
         }
 

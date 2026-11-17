@@ -9,3 +9,10 @@ xcuserdata/
 .idea/
 .vscode/
 dist/
+
+# Intel 移植的本地构建产物与备份
+build/
+dist/
+*.orig
+*.bak2
+PORT-NOTES.md

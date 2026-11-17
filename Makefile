@@ -4,20 +4,21 @@ BUILD_DIR := build
 SDK := $(shell xcrun --sdk macosx --show-sdk-path)
 CXX := xcrun clang++
 CC := xcrun clang
-COMMON_FLAGS := -arch arm64 -mmacosx-version-min=12.0 -isysroot "$(SDK)" -Wall -Wextra
+ARCH ?= arm64
+COMMON_FLAGS := -arch $(ARCH) -mmacosx-version-min=12.0 -isysroot "$(SDK)" -Wall -Wextra
 OBJC_FLAGS := $(COMMON_FLAGS) -fobjc-arc -fblocks -std=gnu++20 -O2
 
-PLUGIN_SOURCES := Sources/WCRefineMac.mm Sources/WCRPatchProfiles.mm \
+PLUGIN_SOURCES := Sources/WCRX64Stubs.mm Sources/WCRefineMac.mm Sources/WCRPatchProfiles.mm \
 	Sources/WCRRecallTip.mm Sources/WCRCodePatch.mm Sources/WCROriginalID.mm \
-	Sources/WCRVoiceForward.mm Sources/WCRVoiceAutoText.mm Sources/WCRAvatarRound.mm \
-	Sources/WCRMessageRepeat.mm Sources/WCRCommentRepeat.mm \
-	Sources/WCRMessageBlock.mm Sources/WCRMessageBlockPicker.mm \
-	Sources/WCRMessageCapture.mm Sources/WCRGroupLeaveMonitor.mm \
+	Sources/WCRVoiceForward.mm Sources/WCRVoiceAutoText.mm \
+	\
+	Sources/WCRMessageBlockPicker.mm \
+	Sources/WCRGroupLeaveMonitor.mm \
 	Sources/WCRFloatingID.mm Sources/WCRScreenCapture.mm \
 	Sources/WCRAutoUpdate.mm \
 	Sources/WCRContactName.mm \
 	Sources/WCRConfigStore.mm Sources/WCRContactPicker.mm \
-	Sources/WCRSessionSelect.mm Sources/WCRRecallNotify.mm \
+	Sources/WCRRecallNotify.mm \
 	Sources/WCRMultiSelectLimit.mm Sources/WCROtherApps.mm
 CLI_SOURCES := Tools/wcrefine-check.m Sources/WCRPatchProfiles.mm Sources/WCRCodePatch.mm
 APP_SOURCES := Sources/WCRefineForMacApp.mm Sources/WCRInstaller.mm \
@@ -29,7 +30,7 @@ APP_SOCIAL_ICONS := Resources/GitHubTemplate.png Resources/TelegramTemplate.png
 APP_SIGNATURE := $(BUILD_DIR)/.WCRefine-for-Mac.signed
 VERSION := $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist 2>/dev/null)
 DIST_NAME := WCRefine-For-Mac-$(VERSION)
-DIST_APP := dist/$(DIST_NAME)-macos-arm64.zip
+DIST_APP := dist/$(DIST_NAME)-macos-$(ARCH).zip
 DIST_SOURCE := dist/$(DIST_NAME)-source.tar.gz
 
 SHARE_APP := $(BUILD_DIR)/WCRefineShare.app

@@ -27,7 +27,14 @@ namespace {
 constexpr const char *kBundleIdentifier = "com.tencent.xinWeChat";
 constexpr const char *kWeChatResourcesSuffix = "/Contents/Resources/wechat.dylib";
 
-constexpr uint32_t kArm64CpuType = CPU_TYPE_ARM64;
+// 移植：按编译目标选切片，Intel 上就是 x86_64 那片。
+#if defined(__x86_64__)
+constexpr uint32_t kTargetCpuType = CPU_TYPE_X86_64;
+constexpr const char *kTargetArchName = "x86_64";
+#else
+constexpr uint32_t kTargetCpuType = CPU_TYPE_ARM64;
+constexpr const char *kTargetArchName = "arm64";
+#endif
 
 // Universal wechat.dylib SHA-256 evidence:
 //   270135: 5f5a81c4d8b000dec1c7203738fc4dba75ce752b55874fc1b6b5869f9dfb1027
@@ -40,6 +47,44 @@ constexpr uint32_t kArm64CpuType = CPU_TYPE_ARM64;
 // 270351 到 270387 的解析器在补丁点前 0x270。270390 在前 0x278。
 // 灰字仍写 +0x1D0、+0x218、+0x230。
 const WCRPatchProfile kProfiles[] = {
+
+    // ── x86_64 移植条目：微信 4.2.0 / build 270387（通用二进制）──
+    // 定位依据见 INTEL-PORT.md。revokeParser 0x4e1a800（5216 B，对应 arm64
+    // 0x464f498 / 4380 B）；静默点取 0x4e1aa87 的 `jne +0x50`
+    // （对应 arm64 0x464f708 的 `cbz w0, skip` 强制跳走），
+    // 改成 `jmp +0x50`：75 50 → EB 50，后两字节保持。
+    // 消息字段偏移沿用 arm64；newmsgid 0x1C8 已在 x86_64 反汇编里亲眼见到
+    // （movq %rax,0x1c8(%rbx)）。
+    // messageFinalizerAddress 尚未定位 → 原文捕获会自报不可用。
+    {
+        .shortVersion = "4.2.0",
+        .buildVersion = "270387",
+        .displayVersion = "4.2.0.51-x86_64",
+        .dylibSHA256 = "5fc03b1af653fcd1d5383ca6492e9263367a75374ddb6ef792e24e66a7bfb829",
+        .patchAddress = 0,   // 2026-11-17 崩溃回退：插件入口跳板是 arm64 字节，x86_64 上会 SIGILL
+        .expectedBytes = {0},
+        .replacementBytes = {0},
+        .revokeParserAddress = 0,
+        .revokePrologue = {0xE5894855u, 0x56415741u, 0x54415541u, 0xEC814853u},
+        .revokeNewMsgIdOffset = 0x1C8,
+        .revokeReplaceMsgOffset = 0x1D0,
+        // 2026-11-17 20:40 定位：messageFinalizer 0x4dbe110（272 字节）。
+        // 形状与 arm64 0x45fc390 完全一致：
+        //   movzbl 0x258(%rdi),%eax / xor $1 / or %sil / cmp $1 / jne
+        // 之后 movq 0x220(%rbx),%rdi → callq *0x18(%rax) → movq 0xc(%rbx)，
+        // 对应 arm64 的 ldr [x19,#0x220] / blr [x8,#0x18] / ldur [x19,#0xc]。
+        // 续跑点 0x4dbe11e（arm64 取 0x45fc39c，即条件跳转那条）。
+        .messageFinalizerAddress = 0,
+        .messageFinalizerContinuation = 0x4dbe11e,
+        .messageFinalizerPrologue = {0x5887B60Fu, 0x34000002u, 0xF0084001u, 0x850F013Cu},
+        .messageServerIDOffset = 0xF8,
+        .messageTypeOffset = 0x0C,
+        .messageContentOffset = 0x130,
+        .messageCreateTimeSecOffset = 0x114,
+        .messageCreateTimeMsOffset = 0x100,
+        .revokeDisplayCopyOffsetA = 0x218,
+        .revokeDisplayCopyOffsetB = 0x230,
+    },
     {
         .shortVersion = "4.1.15",
         .buildVersion = "270135",
@@ -345,6 +390,7 @@ const WCRPatchProfile kProfiles[] = {
         // 消息复制 0x3781ac 写入的 MessageData 虚表。和 270351 的 0xa002468 同一写法。
         .messageDataVtableAddress = 0x979f158,
     },
+
 };
 
 NSString *WCRErrorString(NSString *message) {
@@ -405,16 +451,16 @@ BOOL WCRFatArchArm64(const uint8_t *fileBytes,
             uint32_t cpuType = ntohl(arch.cputype);
             uint32_t offset = ntohl(arch.offset);
             uint32_t size = ntohl(arch.size);
-            if (cpuType != kArm64CpuType) continue;
+            if (cpuType != kTargetCpuType) continue;
             if (offset > fileSize || size > fileSize - offset) {
-                if (error) *error = WCRError(@"FAT arm64 切片越界");
+                if (error) *error = WCRError([NSString stringWithFormat:@"FAT %s 切片越界", kTargetArchName]);
                 return NO;
             }
             *sliceOffset = offset;
             *sliceSize = size;
             return YES;
         }
-        if (error) *error = WCRError(@"微信不包含 arm64 架构；当前仅支持 Apple Silicon");
+        if (error) *error = WCRError([NSString stringWithFormat:@"微信不包含 %s 架构", kTargetArchName]);
         return NO;
     }
 
@@ -424,8 +470,8 @@ BOOL WCRFatArchArm64(const uint8_t *fileBytes,
     }
     mach_header_64 header{};
     memcpy(&header, fileBytes, sizeof(header));
-    if (header.magic != MH_MAGIC_64 || header.cputype != kArm64CpuType) {
-        if (error) *error = WCRError(@"wechat.dylib 不是 arm64 Mach-O");
+    if (header.magic != MH_MAGIC_64 || header.cputype != kTargetCpuType) {
+        if (error) *error = WCRError([NSString stringWithFormat:@"wechat.dylib 不是 %s Mach-O", kTargetArchName]);
         return NO;
     }
     *sliceOffset = 0;
@@ -444,7 +490,7 @@ BOOL WCRFileOffsetForVA(const uint8_t *slice,
     }
     mach_header_64 header{};
     memcpy(&header, slice, sizeof(header));
-    if (header.magic != MH_MAGIC_64 || header.cputype != kArm64CpuType) {
+    if (header.magic != MH_MAGIC_64 || header.cputype != kTargetCpuType) {
         if (error) *error = WCRError(@"不支持的 Mach-O 架构");
         return NO;
     }
