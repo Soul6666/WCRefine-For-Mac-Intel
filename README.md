@@ -6,6 +6,10 @@
 > 移植说明、构建方法、踩过的坑见 [INTEL-PORT.md](INTEL-PORT.md)。
 > 构建：`make ARCH=x86_64 all`。MIT 许可，版权归上游作者。
 
+> ⚠️ **常见问题（2.0.0 起）**：装完副本后微信提示「请前往系统偏好设置允许微信访问录屏」，可系统设置里明明勾着？
+> 这是 macOS 授权绑定 cdhash、重签名后失效导致的，不是没开权限。
+> 修复只要一条命令，见 [截图 / 屏幕录制权限](#截图--屏幕录制权限常见问题)。
+
 # WCRefine for Mac
 
 Mac微信增强工具，**基于微信 4.1.15.55（构建 270135）、4.2.0.15（构建 270351）、4.2.0.17（构建 270353）、4.2.0.51（构建 270387）和 4.2.0.54（构建 270390）制作**。
@@ -17,6 +21,59 @@ Mac微信增强工具，**基于微信 4.1.15.55（构建 270135）、4.2.0.15�
 > **非官方项目**：WCRefine 与腾讯、微信、Apple 均无隶属、授权或背书关系。「WeChat」「微信」「Mac」等名称仅用于说明兼容对象。本项目不包含、不分发微信安装包，也不提供绕过账号限制或解密聊天数据的能力。
 
 
+
+## 截图 / 屏幕录制权限（常见问题）
+
+**现象**：装好副本、或者每次重新注入／重装／更新微信之后，微信里截图会弹「请前往‘系统偏好设置’允许微信访问录屏」。可打开系统设置一看，微信明明勾着；取消勾选再勾上，还是照旧。
+
+**原因**：macOS 的「屏幕录制」授权不是按名字或路径记的，而是**把 app 可执行文件的 cdhash 写进授权记录**（系统数据库里那条记录的本质就是 `cdhash H"…"`）。安装器给副本注入 dylib 后会重新签名（adhoc），二进制的 cdhash 随之改变；系统里那条旧记录虽然仍显示「已允许」，却和正在运行的二进制对不上，校验必然失败——于是微信一直认为自己没有权限。
+
+凡是会改变主二进制 cdhash 的操作都会触发一次失效：
+
+- 首次注入／`--replace` 重新安装副本
+- 插件 dylib 更新后重新注入
+- 微信自身升级到新构建
+- 手动重签名、修复包
+
+这是 macOS 侧的正常行为，不是插件的 bug，也无法在插件里绕过（TCC 校验在系统进程里做）。每次变更后重跑一次下面的修复即可。
+
+**修复**（任选一种）：
+
+1. 用仓库里的脚本（推荐，会自动退出微信并重置授权）：
+
+```bash
+bash Installer/fix-screen-recording.sh
+```
+
+2. 手动，两条命令：
+
+```bash
+# 先完全退出微信（⌘Q，关窗口不算）
+tccutil reset ScreenCapture com.tencent.xinWeChat
+# 再重新打开微信，按一次截图，系统会重新弹授权，点「允许」
+open -n ~/Applications/WCRefine-WeChat.app
+```
+
+3. 纯鼠标：系统设置 → 隐私与安全性 → 屏幕录制 → 点「微信」右侧的 `−` 删掉该条目 → 重新打开微信 → 截图时按提示授权。
+
+**注意**：
+
+- 重置前必须**完全退出**微信（`⌘Q`），只关窗口不算。
+- 重置后**第一次**截图才会弹授权窗；弹窗一定要点「允许」，否则记录不会写回。
+- 多开副本用的是独立 bundle id（默认 `com.tencent.xinWeChat.WCRefineMultiN`），要把参数换成它：
+
+```bash
+bash Installer/fix-screen-recording.sh com.tencent.xinWeChat.WCRefineMulti2
+```
+
+- 确认当前副本的 bundle id 与 cdhash：
+
+```bash
+/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' ~/Applications/WCRefine-WeChat.app/Contents/Info.plist
+codesign -dv --verbose=4 ~/Applications/WCRefine-WeChat.app 2>&1 | grep -i cdhash
+```
+
+- 原版 `/Applications/WeChat.app` 不会被安装器改写；但你若升级了原版微信，它的授权同样会因版本变化失效，按同样方法修一次即可。
 
 ## 兼容版本
 

@@ -131,3 +131,19 @@ else
 需要多开请改用 --multi N 生成独立数据目录的多开副本。
 DONE
 fi
+
+cat <<'TCC_NOTE'
+
+提示（截图 / 录屏权限）
+------------------------------
+如果启动后微信提示「请前往系统偏好设置允许微信访问录屏」，而系统设置里
+明明勾着，这不是没开权限——注入并重签名后，macOS 的屏幕录制授权（绑定在
+二进制 cdhash 上）会失效。修复只需一条命令：
+
+  bash Installer/fix-screen-recording.sh
+
+多开副本记得带自己的 bundle id，例如：
+  bash Installer/fix-screen-recording.sh com.tencent.xinWeChat.WCRefineMulti2
+
+详见 README「截图 / 屏幕录制权限」一节。
+TCC_NOTE

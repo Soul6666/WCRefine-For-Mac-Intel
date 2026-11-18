@@ -48,7 +48,7 @@ static NSString *const kWCRDefaultsKeyScreenCaptureBypassEnabled = @"WCRefineMac
 static NSString *const kWCRDefaultsKeyAutoUpdateDisabled = @"WCRefineMacAutoUpdateDisabled";
 
 /// 菜单里展示的插件版本号；随功能变更手动递增。
-static NSString *const kWCRPluginVersion = @"1.0.5";
+static NSString *const kWCRPluginVersion = @"2.0.0";
 
 /// Menu items with a tag >= this value are rebuilt every time the submenu
 /// opens (original-ID rows and the option-key diagnostics entry).
